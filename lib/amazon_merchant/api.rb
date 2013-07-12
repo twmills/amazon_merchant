@@ -10,7 +10,7 @@ module AmazonMerchant
                           version: options[:version],
                           namespace: AmazonMerchant::String.camelize(options[:namespace]) }
         request = AmazonMerchant::Request.new(common_params.merge(params))
-        options[:response_class].new(AmazonMerchant::Connection.get(request))
+        options[:response_class].new(request.connect!)
       end
     end
 
@@ -47,6 +47,8 @@ module AmazonMerchant
 
     def update_order_fulfillment(params = {})
       orders = params.delete(:orders)
+      document = AmazonMerchant::FeedRequests::OrderFulfillment.new(orders: orders, merchant_id: merchant_id)
+
 
       common_params = { seller_id: merchant_id,
                         action: 'SubmitFeed',
@@ -55,8 +57,8 @@ module AmazonMerchant
                         method: :post }
 
       request = AmazonMerchant::Request.new(common_params.merge(params))
-      request.body = ""
-      request.connect!
+      request.body = document.to_xml
+      AmazonMerchant::SubmitFeedResult.new(request.connect!)
     end
 
     def authenticated?
