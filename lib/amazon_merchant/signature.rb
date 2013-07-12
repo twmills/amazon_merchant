@@ -1,8 +1,9 @@
 module AmazonMerchant
   class Signature
 
-    def self.create(method, domain, query_string)
-      canonical = [method.to_s.upcase, domain, query_string].join("\n")
+    def self.create(method, domain, uri, query_string)
+      canonical = [method.to_s.upcase, domain, uri, query_string].join("\n")
+      puts canonical.inspect
       Base64.encode64(OpenSSL::HMAC.digest(self.digest, self.key, canonical)).chomp
     end
 

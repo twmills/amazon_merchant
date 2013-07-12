@@ -5,30 +5,38 @@ module AmazonMerchant
 
       attr_writer :adapter
 
-      def get(command, params = {})
-        response = self.api_connection.get(UrlBuilder.uri(command, params))
-        self.parse_response(response)
+      [:get, :post].each do |http_method|
+        define_method http_method do |request|
+          response = self.adapter(request).send(http_method)
+          self.parse_response(response)
+        end
       end
 
-      def api_connection
-        adapter.connection(UrlBuilder.domain)
-      end
-
-      def adapter
-        @adapter || AmazonMerchant::FaradayAdapter
+      def adapter(request)
+        @adapter || AmazonMerchant::FaradayAdapter.new(request)
       end
 
       def parse_response(response)
         case response.status
-          when 409 then
-            raise AmazonMerchant::PermissionError, response.body
-          when 404 then
-            nil
+          when 400 then
+            raise AmazonMerchant::ValidationError, parse_error(response.body)
           when 200 then
-            JSON.parse(response.body)
-          when 501 then
-            raise AmazonMerchant::NotImplementedError, response.body
+            response.body
+          when 503 then
+            handle_503(response)
+          else
+            raise AmazonMerchant::UnknownResponse, response.body
         end
+      end
+
+      def parse_error(xml)
+        AmazonMerchant::ApiError.new(xml).to_s
+      end
+
+      def handle_503(response)
+        api_error = AmazonMerchant::ApiError.new(response.body)
+        error_class = api_error.code == "RequestThrottled" ? AmazonMerchant::RequestThrottledError : AmazonMerchant::ServiceUnavailable
+        raise error_class, api_error.to_s
       end
 
     end
